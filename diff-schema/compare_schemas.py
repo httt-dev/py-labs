@@ -3,10 +3,10 @@ import psycopg
 import os
 from dotenv import load_dotenv
 from tabulate import tabulate
+from html import escape
 
 load_dotenv()
 
-# Mapping từ Oracle sang PostgreSQL
 TYPE_MAPPING = {
     "BLOB": "bytea",
     "CHAR": "character",
@@ -18,6 +18,13 @@ TYPE_MAPPING = {
     "TIMESTAMP(6)": "timestamp without time zone",
     "TIMESTAMP(6) WITH TIME ZONE": "timestamp with time zone",
 }
+
+def ansi_to_html(text):
+    return (
+        text.replace("\033[91m", '<span style="color: red;">')
+            .replace("\033[92m", '<span style="color: green;">')
+            .replace("\033[0m", '</span>')
+    )
 
 def connect_oracle():
     dsn = os.getenv("ORACLE_DSN")
@@ -37,9 +44,6 @@ def connect_postgres():
     )
 
 def get_oracle_tables(cursor):
-    # cursor.execute("SELECT table_name FROM user_tables where table_name IN ('MS_JAN', 'MS_SHOP', 'MS_ADDRESS')")
-    # cursor.execute("SELECT table_name FROM user_tables where table_name LIKE'%TB_OFF_STORE_DEAL_HEAD%' ORDER BY table_name")
-    # cursor.execute("SELECT table_name FROM user_tables where table_name LIKE'%TB_FGN_BOOKS_SEARCH%' ORDER BY table_name")   # miss index
     cursor.execute("SELECT table_name FROM user_tables where table_name IN('TB_STOCK_HISTORY','TB_SHIPPING_BODY','TB_SHIPPING_HEAD','TB_SALES_VAT_RATE_TOTAL','TB_RECEIVING_BODY','TB_RECEIVING_HEAD','TB_ORDER_HEAD','TB_ORDER_BODY') ORDER BY table_name")
     return [row[0] for row in cursor.fetchall()]
 
@@ -137,17 +141,11 @@ def get_foreign_keys_postgres(cursor, table):
             con.contype = 'f'
             AND tbl.relname = lower(%s)
             AND tbl.relkind IN ('r', 'p')
-            AND NOT EXISTS ( -- Loại trừ bảng gốc là bảng con
-                SELECT 1 FROM pg_inherits WHERE inhrelid = tbl.oid
-            )
-            AND NOT EXISTS ( -- Loại trừ bảng tham chiếu là bảng con
-                SELECT 1 FROM pg_inherits WHERE inhrelid = cl.oid
-            )    
+            AND NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid = tbl.oid)
+            AND NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid = cl.oid)    
         ORDER BY att2.attname
     """, (table,))
     return [(row[0].upper(), row[1].upper(), row[2].upper()) for row in cursor.fetchall()]
-
-
 
 def map_type(oracle_type, precision=None, scale=None):
     pg_type = TYPE_MAPPING.get(oracle_type)
@@ -241,9 +239,10 @@ def main():
     GREEN = "\033[92m"
     RESET = "\033[0m"
 
+    html_logs = []
+
     ora_conn = connect_oracle()
     pg_conn = connect_postgres()
-
     ora_cursor = ora_conn.cursor()
     pg_cursor = pg_conn.cursor()
 
@@ -251,12 +250,15 @@ def main():
     summary = []
 
     for table in tables:
-        print(f"\n\U0001F50D Checking table: {table}")
+        print(f"\n🔍 Checking table: {table}")
+        html_logs.append(f"<h2>🔍 Checking table: {escape(table)}</h2>")
+
         oracle_cols = get_columns_oracle(ora_cursor, table)
         pg_cols = get_columns_postgres(pg_cursor, table)
         comparison = compare_tables(oracle_cols, pg_cols)
 
         print(tabulate(comparison, headers=["Column", "Oracle Type", "Expected PG Type", "Actual PG Type", "Oracle Length", "PG Length", "Status"], tablefmt="grid"))
+        html_logs.append(ansi_to_html(tabulate(comparison, headers=["Column", "Oracle Type", "Expected PG Type", "Actual PG Type", "Oracle Length", "PG Length", "Status"], tablefmt="html")))
 
         ora_indexes = get_indexes_oracle(ora_cursor, table)
         pg_indexes = get_indexes_postgres(pg_cursor, table)
@@ -266,6 +268,8 @@ def main():
 
         print("\nIndexes and Primary Key:")
         print(tabulate(index_results, headers=["Index Name", "Oracle", "Postgres", "Status"], tablefmt="fancy_grid"))
+        html_logs.append("<h3>Indexes and Primary Key</h3>")
+        html_logs.append(ansi_to_html(tabulate(index_results, headers=["Index Name", "Oracle", "Postgres", "Status"], tablefmt="html")))
 
         ora_fks = get_foreign_keys_oracle(ora_cursor, table)
         pg_fks = get_foreign_keys_postgres(pg_cursor, table)
@@ -273,6 +277,8 @@ def main():
 
         print("\nForeign Keys:")
         print(tabulate(fk_results, headers=["Column", "Oracle Ref", "Postgres Ref", "Status"], tablefmt="fancy_grid"))
+        html_logs.append("<h3>Foreign Keys</h3>")
+        html_logs.append(ansi_to_html(tabulate(fk_results, headers=["Column", "Oracle Ref", "Postgres Ref", "Status"], tablefmt="html")))
 
         has_error = any("\U0001F534" in row[-1] for row in comparison + index_results + fk_results)
         if has_error:
@@ -280,8 +286,17 @@ def main():
         else:
             summary.append([table, f"{GREEN}OK{RESET}"])
 
-    print("\n\U0001F4CB Summary of all tables:")
+    print("\n📋 Summary of all tables:")
     print(tabulate(summary, headers=["Table", "Status"], tablefmt="fancy_grid"))
+    html_logs.append("<h2>📋 Summary of all tables</h2>")
+    html_logs.append(ansi_to_html(tabulate(summary, headers=["Table", "Status"], tablefmt="html")))
+
+    with open("comparison_report.html", "w", encoding="utf-8") as f:
+        f.write("<html><head><meta charset='UTF-8'><title>Comparison Report</title></head><body>")
+        f.write("\n".join(html_logs))
+        f.write("</body></html>")
+
+    print("\n📁 HTML report saved to comparison_report.html")
 
     ora_cursor.close()
     pg_cursor.close()

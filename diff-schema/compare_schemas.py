@@ -44,7 +44,8 @@ def connect_postgres():
     )
 
 def get_oracle_tables(cursor):
-    cursor.execute("SELECT table_name FROM user_tables where table_name IN('TB_STOCK_HISTORY','TB_SHIPPING_BODY','TB_SHIPPING_HEAD','TB_SALES_VAT_RATE_TOTAL','TB_RECEIVING_BODY','TB_RECEIVING_HEAD','TB_ORDER_HEAD','TB_ORDER_BODY') ORDER BY table_name")
+    cursor.execute("SELECT table_name FROM user_tables where table_name LIKE '%MS_%' ORDER BY table_name")
+    # cursor.execute("SELECT table_name FROM user_tables where table_name IN('TB_STOCK_HISTORY','TB_SHIPPING_BODY','TB_SHIPPING_HEAD','TB_SALES_VAT_RATE_TOTAL','TB_RECEIVING_BODY','TB_RECEIVING_HEAD','TB_ORDER_HEAD','TB_ORDER_BODY') ORDER BY table_name")
     return [row[0] for row in cursor.fetchall()]
 
 def get_columns_oracle(cursor, table):
@@ -234,6 +235,50 @@ def compare_foreign_keys(ora_fks, pg_fks):
             results.append([fk[0], "-", f"{fk[1]}.{fk[2]}", f"\U0001F534 {RED}Extra in PostgreSQL{RESET}"])
     return results
 
+def get_not_null_columns_oracle(cursor, table):
+    cursor.execute(f"""
+        SELECT column_name
+        FROM user_tab_columns
+        WHERE table_name = '{table}' AND nullable = 'N'
+    """)
+    return set(row[0].upper() for row in cursor.fetchall())
+
+def get_not_null_columns_postgres(cursor, table):
+    cursor.execute(f"""
+        SELECT a.attname AS column_name
+        FROM pg_attribute a
+        LEFT JOIN pg_attrdef d ON (a.attrelid = d.adrelid AND a.attnum = d.adnum)
+        WHERE a.attrelid = 'public.{table.lower()}'::regclass
+        AND a.attnum > 0
+        AND NOT a.attisdropped
+        AND a.attnotnull = true
+    """)
+    return set(row[0].upper() for row in cursor.fetchall())
+
+def compare_not_null_constraints(ora_nn, pg_nn):
+    RED = "\033[91m"
+    RESET = "\033[0m"
+    results = []
+
+    all_columns = sorted(ora_nn.union(pg_nn))
+    for col in all_columns:
+        ora_has = col in ora_nn
+        pg_has = col in pg_nn
+        status = "OK"
+        icon = ""
+        if ora_has and not pg_has:
+            status = f"Missing in PostgreSQL"
+            icon = "\U0001F534"
+        elif not ora_has and pg_has:
+            status = f"Extra in PostgreSQL"
+            icon = "\U0001F534"
+
+        full_status = f"{icon} {RED}{status}{RESET}" if icon else status
+        results.append([col, ora_has, pg_has, full_status])
+
+    return results
+
+
 def main():
     RED = "\033[91m"
     GREEN = "\033[92m"
@@ -280,7 +325,17 @@ def main():
         html_logs.append("<h3>Foreign Keys</h3>")
         html_logs.append(ansi_to_html(tabulate(fk_results, headers=["Column", "Oracle Ref", "Postgres Ref", "Status"], tablefmt="html")))
 
-        has_error = any("\U0001F534" in row[-1] for row in comparison + index_results + fk_results)
+        # Compare NOT NULL constraints
+        ora_not_null = get_not_null_columns_oracle(ora_cursor, table)
+        pg_not_null = get_not_null_columns_postgres(pg_cursor, table)
+        nn_results = compare_not_null_constraints(ora_not_null, pg_not_null)
+
+        print("\nNOT NULL Constraints:")
+        print(tabulate(nn_results, headers=["Column", "Oracle NOT NULL", "Postgres NOT NULL", "Status"], tablefmt="fancy_grid"))
+        html_logs.append("<h3>NOT NULL Constraints</h3>")
+        html_logs.append(ansi_to_html(tabulate(nn_results, headers=["Column", "Oracle NOT NULL", "Postgres NOT NULL", "Status"], tablefmt="html")))
+
+        has_error = any("\U0001F534" in row[-1] for row in comparison + index_results + fk_results + nn_results)
         if has_error:
             summary.append([table, f"\U0001F534 {RED}ERROR{RESET}"])
         else:

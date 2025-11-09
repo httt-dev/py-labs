@@ -1,0 +1,5 @@
+# Build EXE file
+```bash
+pyinstaller --noconfirm --onefile --add-data "views;views" --add-data "src;src" --hidden-import=src.query_diff --hidden-import=src.database.oracle_db --hidden-import=src.database.postgres_db --hidden-import=src.helper.csv_compare --hidden-import=src.helper.csv_export --hidden-import=src.helper.logger_helper --hidden-import=webview --hidden-import=oracledb --hidden-import=psycopg2 --hidden-import=pandas --hidden-import=cryptography --hidden-import=cryptography.hazmat.primitives.kdf.pbkdf2 --hidden-import=cryptography.hazmat.primitives.kdf --hidden-import=cryptography.hazmat.primitives --hidden-import=cryptography.hazmat --hidden-import=numpy --hidden-import=cffi --icon=icon.ico --noconsole --name="AppLab" app.py
+```
+**Remember: Replace version in ui-builder/.env, app.py and build exe script**

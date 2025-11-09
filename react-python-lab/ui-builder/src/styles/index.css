@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@layer base {
+  @import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap");
+  html {
+    /* width */
+    ::-webkit-scrollbar {
+      @apply w-2 h-2;
+    }
+
+    /* Track */
+    ::-webkit-scrollbar-track {
+      @apply bg-slate-200 rounded-full;
+    }
+
+    /* Handle */
+    ::-webkit-scrollbar-thumb {
+      @apply bg-slate-300 rounded-full;
+    }
+
+    /* Handle on hover */
+    ::-webkit-scrollbar-thumb:hover {
+      @apply bg-slate-500 rounded-full;
+    }
+  }
+
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    border-bottom: 1px solid #000000 !important;
+  }
+
+  input:invalid {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    border-bottom: 2px solid var(--color-red-500) !important;
+  }
+
+  input:invalid:required {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    border-bottom: 2px solid var(--color-red-500) !important;
+  }
+
+  input:valid {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    border-bottom: 1px solid #000000 !important;
+  }
+
+  button {
+    cursor: pointer;
+    border: 1px solid #000000;
+    padding: 2px 4px;
+    border-radius: 6px;
+  }
+
+  @theme {
+    --animate-fade-in: fade-in 0.1s ease-in-out forwards;
+    --animate-fade-out: fade-out 0.1s ease-in-out forwards;
+  
+    @keyframes fade-in {
+      0% {
+        opacity: 0;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+  
+    @keyframes fade-out {
+      0% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+      }
+    }
+  }
+  
+}

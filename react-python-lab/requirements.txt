@@ -1,0 +1,16 @@
+pywebview
+cryptography
+pyinstaller
+
+# query diff
+oracledb
+psycopg2-binary
+pandas
+
+# api client
+requests
+
+# screenshot
+pillow 
+pywin32
+pyautogui

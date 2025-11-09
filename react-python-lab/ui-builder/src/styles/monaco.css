@@ -1,0 +1,42 @@
+/* Đảm bảo editor và các thành phần con trong suốt */
+.monaco-editor,
+.monaco-editor .monaco-editor-background,
+.monaco-editor .margin,
+.monaco-editor .minimap {
+  background-color: transparent !important;
+}
+
+.monaco-editor,
+.monaco-editor .inputarea,
+.monaco-editor .monaco-editor-background,
+.monaco-editor .monaco-editor-container {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.monaco-editor:focus,
+.monaco-editor .inputarea:focus,
+.monaco-editor .monaco-editor-background:focus,
+.monaco-editor .monaco-editor-container:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.monaco-editor .minimap-slider,
+.monaco-editor .minimap-slider .slider {
+  background-color: transparent !important;
+}
+
+.monaco-editor .monaco-scrollable-element .slider {
+  background-color: rgba(200, 200, 200, 0.6) !important;
+}
+
+.monaco-editor .monaco-scrollable-element .slider:hover {
+  background-color: rgba(180, 180, 180, 0.8) !important;
+}
+
+.monaco-editor .monaco-scrollable-element .scrollbar {
+  background-color: transparent !important;
+}
